@@ -21,7 +21,8 @@ library(tidyverse)
 
 ```{r}
 download.file("https://eviction-lab-data-downloads.s3.amazonaws.com/OH/counties.csv", "counties.csv")
-counties <- read_csv("counties.csv")
+counties <- read_csv("counties.csv") %>% 
+  clean_names()
 ```
 # Do this by year, maybe make animation?
 
@@ -87,30 +88,34 @@ dplyr::mutate(geometry = st_centroid(geometry))
 
 leaflet(sf_centers) %>%
 addProviderTiles(providers$Stamen.Toner) %>%
-addCircleMarkers(radius = ~er.16)
+addCircleMarkers(radius = ~er_03,
+                 highlight = highlightOptions(weight = 5,
+                                           fillOpacity = 0.7,
+                                           bringToFront = TRUE),
+              label = labels)
 leaflet(sf_centers) %>%
 addProviderTiles(providers$Stamen.Toner) %>%
 addCircleMarkers(radius = ~er.00)
 
 
-animation_data <- sf %>%
-  select(-starts_with("p."), -starts_with("pr."), -starts_with("roh."),
-         -starts_with("pro."), -starts_with("mgr."), -starts_with("mhi."),
-         -starts_with("mpv."), -starts_with("rb."), -starts_with("pw."),
-         -starts_with("paa."), -starts_with("ph."), -starts_with("pai."),
-         -starts_with("pa."), -starts_with("pnp."), -starts_with("pm."),
-         -starts_with("po."), -starts_with("ef."), -starts_with("e."),
-         -starts_with("efr."), -starts_with("lf."), -starts_with("imputed."),
-         -starts_with("subbed")) %>%
- pivot_longer(
-   cols = starts_with("er."),
-   names_to = "year",
-   names_prefix = "er.",
-   values_to = "eviction_rate",
-   values_drop_na = TRUE
- ) %>% 
-  mutate(year = as.numeric(year)) %>% 
-  mutate(year = year + 2000)
+# animation_data <- sf %>%
+#   select(-starts_with("p."), -starts_with("pr."), -starts_with("roh."),
+#          -starts_with("pro."), -starts_with("mgr."), -starts_with("mhi."),
+#          -starts_with("mpv."), -starts_with("rb."), -starts_with("pw."),
+#          -starts_with("paa."), -starts_with("ph."), -starts_with("pai."),
+#          -starts_with("pa."), -starts_with("pnp."), -starts_with("pm."),
+#          -starts_with("po."), -starts_with("ef."), -starts_with("e."),
+#          -starts_with("efr."), -starts_with("lf."), -starts_with("imputed."),
+#          -starts_with("subbed")) %>%
+#  pivot_longer(
+#    cols = starts_with("er."),
+#    names_to = "year",
+#    names_prefix = "er.",
+#    values_to = "eviction_rate",
+#    values_drop_na = TRUE
+#  ) %>% 
+#   mutate(year = as.numeric(year)) %>% 
+#   mutate(year = year + 2000)
 
 ggplot(animation_data) +
   geom_sf(aes(geometry = geometry)) +

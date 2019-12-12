@@ -65,10 +65,11 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                     sidebarPanel(
                                       selectInput("mapvar",
                                                   label = "Choose",
-                                                  choices = c("2000" = "sf$er_00", "2001" = "sf$er.01", "2002" = "sf$er_02", "2003" = "sf$er_03",
-                                                              "2004" = "sf$er_04", "2005" = "sf$er.05", "2006" = "sf$er_06", "2007" = "sf$er_07", "2008" = "sf$er_08",
-                                                              "2009" = "sf$er_09", "2010" = "sf$er_10", "2011" = "sf$er_11", "2012" = "sf$er_12", "2013" = "sf$er_13",
-                                                              "2014" = "sf$er_14", "2015" = "sf$er_15", "2016" = "sf$er_16")
+                                                  choices = c("2000" = "26", "2001" = "49", "2002" = "72",
+                                                              "2003" = "95", "2004" = "118", "2005" = "141", "2006" = "164",
+                                                              "2007" = "187", "2008" = "210", "2009" = "233", "2010" = "256",
+                                                              "2011" = "279", "2012" = "302", "2013" = "325", "2014" = "348",
+                                                              "2015" = "371", "2016" = "394")
                                                   )
                                     ),
                                     mainPanel(
@@ -170,33 +171,40 @@ server <- function(input, output){
   
   sf <- read_sf(
     "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
-    clean_names()
+    clean_names() 
     #st_transform(st_crs(4326)) %>% 
    # st_cast('POLYGON')
   # Got this idea from: https://rstudio-pubs-static.s3.amazonaws.com/307862_b8c8460272dc4a2a9023d033d5f3ec34.html
   # And help from Mark on R studio
- # sf %>% 
-chosen <- input$mapvar
-  pal_val <- reactive({
-    input$mapvar
-  })
-  pal<- observe ({
-    colorNumeric("viridis", domain = pal_val)
-  })
-  # labels <- reactive({sprintf(
-  #   "<strong>%s</strong><br/>%g percent eviction rate",
-  #   sf$n, input$mapvar
-  # )}) %>% 
-  #  lapply(htmltools::HTML)
+
+
+
+ 
+
   
   output$evicmap <- renderLeaflet({
+    x <- as.numeric(input$mapvar)
+    labels <- sprintf(
+      "<strong>%s</strong><br/>%g percent eviction rate",
+      sf$n, sf[[x]]
+    ) %>% 
+      lapply(htmltools::HTML)
+    pal_val <- sf[[x]]
+    
+    pal<- colorNumeric("viridis", domain = pal_val)
     leaflet(sf) %>%
       addProviderTiles(providers$Stamen.Toner) %>%
       addPolygons(color = ~pal(pal_val),
-                  fillColor = ~pal(pal_val)) %>% 
+                  fillColor = ~pal(pal_val),
+                  highlight = highlightOptions(weight = 5,
+                                               fillOpacity = 0.7,
+                                               bringToFront = TRUE),
+                  label = labels) %>% 
       addLegend(pal = pal, values = pal_val)
-    
   })
+  
+  
+  
   ohio <- get_decennial(geography = "county", 
                         variables = c(totalrural = "H002005", total = "H002001"), 
                         state = "OH")
