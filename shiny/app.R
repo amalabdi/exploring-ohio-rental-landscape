@@ -1,8 +1,18 @@
 # things i should add: general facts about each county (table or interactive thing?)
 # that maybe touches on race
 # animation type thing with map
+# should also look at raw numbers because number of renters is growing
 # # loading libraries
+# c("2000" = "sf$`er.00`", "2001" = "sf$`er.01`", "2002" = "sf$`er.02`", "2003" = "sf$`er.03`",
+#   "2004" = "sf$`er.04`", "2005" = "sf$`er.05`", "2006" = "sf$`er.06`", "2007" = "sf$`er.01`", "2008" = "sf$`er.08`",
+#   "2009" = "sf$`er.09`", "2010" = "sf$`er.10`", "2011" = "sf$`er.11`", "2012" = "sf$`er.12`", "2013" = "sf$`er.13`",
+#   "2014" = "sf$`er.14`", "2015"= "sf$`er.15`", "2016" = "sf$`er.16`"
 
+
+
+library(leaflet)
+library(htmltools)
+library(sf)
 library(fs)
 library(gt)
 library(tidymodels)
@@ -21,6 +31,8 @@ library(tidyverse)
 
 #data <- read_xlsx("data.xlsx")
 counties <- read_csv("counties.csv")
+sf <- read_sf(
+  "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson")
 
 # Creating a UI with a navbar 
 
@@ -50,20 +62,29 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                            # Adding tab for map
                            
                            tabPanel("Eviction Map",
-                                    leafletOutput("map1")),
+                                    sidebarPanel(
+                                      selectInput("mapvar",
+                                                  label = "Choose",
+                                                  choices = c("2000" = "sf$er_00", "2001" = "sf$er.01", "2002" = "sf$er_02", "2003" = "sf$er_03",
+                                                              "2004" = "sf$er_04", "2005" = "sf$er.05", "2006" = "sf$er_06", "2007" = "sf$er_07", "2008" = "sf$er_08",
+                                                              "2009" = "sf$er_09", "2010" = "sf$er_10", "2011" = "sf$er_11", "2012" = "sf$er_12", "2013" = "sf$er_13",
+                                                              "2014" = "sf$er_14", "2015" = "sf$er_15", "2016" = "sf$er_16")
+                                                  )
+                                    ),
+                                    mainPanel(
+                                      leafletOutput("evicmap"))),
                            
                            # Adding a tab for my about me page
                            tabPanel("About the Author",
                                     textOutput("textabout")),
                            
                            # Adding tab comparing rural and urban
-                           tabPanel("Comparing Rural and Ubran",
+                           tabPanel("Comparing Rural and Urban",
                                     sidebarPanel(
-                                      selectInput("modelchoice",
+                                      selectInput("var",
                                            label = "Choose",
-                                           choices = c("rentburden" = 12, "percentrural" = 31),
-                                           selected = "rentburden")
-                                    ),
+                                           choices = c("Rent-burdened" = "`rent-burden`","Eviction Rate"= "`eviction-rate`")
+                                           ),
                                     p("This graph shows xyz"),
                                     p("For instance, akjdfkhf")),
                                     mainPanel(
@@ -76,7 +97,7 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                         "Insert interpretation of graphs"
                                       )
                                     )
-                ))
+                )))
 
 # Creating a server to tell ui what to do
 
@@ -148,27 +169,31 @@ server <- function(input, output){
   library(sf)
   
   sf <- read_sf(
-    "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson")
+    "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
+    clean_names()
+    #st_transform(st_crs(4326)) %>% 
+   # st_cast('POLYGON')
   # Got this idea from: https://rstudio-pubs-static.s3.amazonaws.com/307862_b8c8460272dc4a2a9023d033d5f3ec34.html
   # And help from Mark on R studio
-  pal_val <- sf$pro.03
-  pal <- colorNumeric("viridis", pal_val)
-  labels <- sprintf(
-    "<strong>%s</strong><br/>%g percent eviction rate",
-    sf$n, sf$pro.03
-  ) %>% 
-    lapply(htmltools::HTML)
+ # sf %>% 
+chosen <- input$mapvar
+  pal_val <- reactive({
+    input$mapvar
+  })
+  pal<- observe ({
+    colorNumeric("viridis", domain = pal_val)
+  })
+  # labels <- reactive({sprintf(
+  #   "<strong>%s</strong><br/>%g percent eviction rate",
+  #   sf$n, input$mapvar
+  # )}) %>% 
+  #  lapply(htmltools::HTML)
   
-  output$map1 <- renderLeaflet({
+  output$evicmap <- renderLeaflet({
     leaflet(sf) %>%
       addProviderTiles(providers$Stamen.Toner) %>%
       addPolygons(color = ~pal(pal_val),
-                  fillColor = ~pal(pal_val),
-                  highlight = highlightOptions(weight = 5,
-                                               fillOpacity = 0.7,
-                                               bringToFront = TRUE),
-                  label = labels
-      ) %>% 
+                  fillColor = ~pal(pal_val)) %>% 
       addLegend(pal = pal, values = pal_val)
     
   })
@@ -183,9 +208,10 @@ server <- function(input, output){
   merge <- merge(counties, pivot, by = "GEOID") %>% 
     group_by(year) 
   
-  output$modelchoice <- renderPlot({
-    colm <- as.numeric(input$modelchoice)
-      ggplot(aes(x = merge[,colm], y = merge$`eviction-rate`)
+  output$ruralgraphs <- renderPlot({
+    # colm <- as.numeric(input$modelchoice)
+      ggplot(data = merge, aes_string(x = merge$ruralper, y = input$var)) +
+        geom_smooth()
   })
   }
 

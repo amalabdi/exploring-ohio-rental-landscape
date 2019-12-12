@@ -1,0 +1,247 @@
+title: "WIP"
+author: "Amal Abdi"
+date: "11/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(infer)
+library(gganimate)
+library(htmltools)
+library(tidycensus)
+library(readxl)
+library(sf)
+library(shiny)
+library(leaflet)
+library(broom)
+library(sp)
+library(tidyverse)
+```
+
+```{r}
+download.file("https://eviction-lab-data-downloads.s3.amazonaws.com/OH/counties.csv", "counties.csv")
+counties <- read_csv("counties.csv")
+```
+# Do this by year, maybe make animation?
+
+```{r}
+counties %>% 
+  ggplot(aes(x = `population`, y = `eviction-rate`, size = population))+
+  geom_point(alpha = 0.5) +
+  theme_minimal()
+```
+
+
+
+
+
+```{r}
+rent <- ggplot(data, aes(x = year, y = `rent-burden`)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Percentage of households rent-burdened", subtitle = "rent-burdened = paying > 30% of
+       income to rent")
+rent
+```
+
+
+```{r}
+library(janitor)
+sf <- read_sf(
+  "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
+  clean_names()
+
+```
+
+```{r}
+library(leaflet)
+library(htmltools)
+
+# Got this idea from: https://rstudio-pubs-static.s3.amazonaws.com/307862_b8c8460272dc4a2a9023d033d5f3ec34.html
+# And help from Mark on R studio
+pal_val <- sf$er_03
+pal <- colorNumeric("viridis", domain = pal_val)
+labels <- sprintf(
+  "<strong>%s</strong><br/>%g percent eviction rate",
+  sf$n, sf$er_03
+) %>% 
+  lapply(htmltools::HTML)
+
+leaflet(sf) %>%
+  addProviderTiles(providers$Stamen.Toner) %>%
+  addPolygons(color = ~pal(pal_val),
+              fillColor = ~pal(pal_val),
+              highlight = highlightOptions(weight = 5,
+                                           fillOpacity = 0.7,
+                                           bringToFront = TRUE),
+              label = labels
+              ) %>% 
+  addLegend(pal = pal, values = pal_val)
+
+sf_centers <- sf %>%
+dplyr::mutate(geometry = st_centroid(geometry))
+
+# And in leaflet land size is controlled by the radius argument.
+# maybe animation = true with slifer input?
+
+leaflet(sf_centers) %>%
+addProviderTiles(providers$Stamen.Toner) %>%
+addCircleMarkers(radius = ~er.16)
+leaflet(sf_centers) %>%
+addProviderTiles(providers$Stamen.Toner) %>%
+addCircleMarkers(radius = ~er.00)
+
+
+animation_data <- sf %>%
+  select(-starts_with("p."), -starts_with("pr."), -starts_with("roh."),
+         -starts_with("pro."), -starts_with("mgr."), -starts_with("mhi."),
+         -starts_with("mpv."), -starts_with("rb."), -starts_with("pw."),
+         -starts_with("paa."), -starts_with("ph."), -starts_with("pai."),
+         -starts_with("pa."), -starts_with("pnp."), -starts_with("pm."),
+         -starts_with("po."), -starts_with("ef."), -starts_with("e."),
+         -starts_with("efr."), -starts_with("lf."), -starts_with("imputed."),
+         -starts_with("subbed")) %>%
+ pivot_longer(
+   cols = starts_with("er."),
+   names_to = "year",
+   names_prefix = "er.",
+   values_to = "eviction_rate",
+   values_drop_na = TRUE
+ ) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(year = year + 2000)
+
+ggplot(animation_data) +
+  geom_sf(aes(geometry = geometry)) +
+  geom_point(aes(xsize = animation_data$eviction_rate)) +
+  transition_manual(year)
+
+```
+
+
+
+study bpttom counties and lower counties pop and do a regression!!
+
+```{r}
+# q4_data <- recent %>% 
+#   select(year, nominate_dim1, party) %>% 
+#   rep_sample_n(size = nrow(recent), replace = TRUE, reps = 1000) %>% 
+#   group_by(replicate, year) %>% 
+#   nest() %>% 
+#   mutate(mod = map(data, ~ lm(nominate_dim1 ~ party, data = .x))) %>% 
+#   mutate(coefficients = map(mod, ~ tidy(.x))) %>%  
+#   unnest(coefficients) %>% 
+#   filter(term == "partyRepublican") %>% 
+#   ungroup() %>% 
+#   arrange(replicate, year) %>% 
+#   select(replicate, year, estimate)
+library(fs)
+library(gt)
+library(tidymodels)
+library(tidyverse)
+library(tensorflow)
+library(tidycensus)
+library(stringr)
+
+# census_api_key("cec2ddb404f16f9748db315e2b03a90533b3f9a2", install = TRUE)
+
+# used functions below to search for variables that I wanted to use
+# v10 <- load_variables(2010, "sf1", cache = TRUE)
+# view(v10)
+# used fun
+# variable H002005, label = Total!!Rural, concept = URBAN AND RURAL
+# variable H002001, label = Total, concept = URBAN AND RURAL
+
+ohio <- get_decennial(geography = "county", 
+              variables = c(totalrural = "H002005", total = "H002001"), 
+              state = "OH")
+pivot <- ohio %>% 
+  pivot_wider(names_from = variable, values_from = value) %>% 
+  mutate(ruralper = totalrural / total)
+#pivot$NAME = substr(pivot$NAME,1,nchar(pivot$NAME)-6)
+
+merge <- merge(counties, pivot, by = "GEOID") %>% 
+  mutate(rural = if_else(ruralper > 0.5, "Yes", "No")) %>% 
+  mutate(rural = as.factor(rural)) %>% 
+  mutate(rentburden = if_else(`rent-burden` > 30, "Yes", "No")) %>% 
+  mutate(rentburden = as.factor(rentburden)) %>% 
+  group_by(year)
+
+ggplot(aes(x = ruralper, y = `eviction-rate`), data = merge) + geom_point()+transition_manual(year)+ geom_smooth() +
+  theme_minimal()
+
+lmdata <- merge %>% 
+  #group_by(year) %>% doesnt work by year
+  drop_na() %>% 
+  rep_sample_n(size = 17, replace = TRUE, reps = 100) %>% 
+  group_by(replicate) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(`eviction-rate` ~ ruralper, data = .x))) %>% 
+  mutate(coefficients = map(mod, ~ coef(.x))) %>% 
+  mutate(slope = map_dbl(coefficients, ~ pluck(.x, "ruralper")))
+# I will insert a 
+
+set.seed(10)
+x_split <- initial_split(merge, prop = 0.25)
+sample_data <- training(x_split)
+logistic_reg() %>% 
+  set_engine("glm") %>% 
+  fit(rural ~ `eviction-rate`, data = sample_data) %>% 
+  predict(new_data = sample_data) %>% 
+  bind_cols(sample_data) %>% 
+  metrics(truth = rural, estimate = .pred_class) %>% 
+  gt() %>% 
+    tab_header("Model Evaluation on Training Data")
+
+logistic_reg() %>% 
+  set_engine("glm") %>% 
+  fit(rural ~ `eviction-rate`, data = sample_data) %>% 
+  predict(new_data = testing(x_split)) %>% 
+  bind_cols(testing(x_split)) %>% 
+  metrics(truth = rural, estimate = .pred_class) %>% 
+  gt() %>% 
+    tab_header("Model Evaluation on Testing Data")
+
+set.seed(9)
+logistic_reg() %>% 
+  set_engine("glm") %>% 
+  fit(rural ~ `eviction-rate`, data = merge) %>% 
+  predict(new_data = merge) %>% 
+  bind_cols(merge) %>% 
+  metrics(truth = rural, estimate = .pred_class) %>% 
+  gt() %>% 
+    tab_header("Model Evaluation on All Data")
+
+# somewhat enlightening?
+merge %>% 
+  filter(rural == "Yes") %>% 
+  ggplot(aes(x = `rent-burden`)) +
+  geom_histogram()
+
+# created a warning- removed 116 rows of non-finite values
+# need to make a logistic regression for this
+merge %>% 
+  ggplot(aes(x = rural, y = `rent-burden`)) +
+  geom_boxplot()
+
+plot(lmdata)
+ # mutate(coeff_evic = map_dbl(mod, ~pluck(.x, "ruralper"))) %>%
+  #unnest(coeff_evic)
+
+lm(`eviction-rate` ~  population, data = lmdata)
+```
+
+
+```{r}
+graph_3 <- counties %>% 
+  filter(year == 2002) %>% 
+  group_by(name) %>% 
+  arrange(desc(`rent-burden`)) %>% 
+  head() %>% 
+  ggplot(aes(x = name, y = `rent-burden`, fill = `pct-af-am`)) +
+  geom_col()
+
+graph_3
+```
+
