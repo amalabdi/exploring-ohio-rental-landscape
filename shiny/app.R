@@ -45,14 +45,22 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                            tabPanel("Broad Overview",
                                     plotOutput("rbplot"),
                                     br(),
+                                    p("Rent Burden is the percentage of household income spent 
+                                      on rent in a given area. The U.S. Census Bureau only calculates 
+                                      this statistic up to 50%—any number above that is listed 
+                                      as “50% or more."),
+                                    p("If more than 30% of income is spent on rent, then a household
+                                      is defined as rent-burdened. As you can see, Ohioans are spending,
+                                      more and more on rent."),
+                                    br(),
                                     plotOutput("evictionsplot"),
                                     br(),
                                     plotOutput("renterhomesplot")),
                            
-                           tabPanel("Map of Evictions and Rent-burdenedness Over Time",
+                           tabPanel("Map of Evictions and Rent Burden Over Time",
                                     sidebarPanel(
                                       selectInput("rent_evic_select", label = "Choose",
-                                                  choices = c("Rent-burdened", "Eviction Rate"),
+                                                  choices = c("Rent burden", "Eviction Rate"),
                                                   selected = "Eviction Rate"),
                                       sliderInput("slide", label = "Slide",
                                                   min = 2000, max = 2016, value = 2000, sep = "",
@@ -82,13 +90,13 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                     sidebarPanel(
                                       selectInput("rural_urban",
                                                   label = "Choose",
-                                                  choices = c("Rent-burdened" = "rent_burden","Eviction Rate"= "eviction_rate")
+                                                  choices = c("Rent burden" = "rent_burden","Eviction Rate"= "eviction_rate")
                                       ),
                                       p("This graph shows xyz"),
                                       p("For instance, akjdfkhf")),
                                     mainPanel(
                                       plotOutput("ruralgraphs"),
-                                      h4("How does rent-burdennedness and eviction rate vary by 'ruralness'?"),
+                                      h4("How does rent burden and eviction rate vary by 'ruralness'?"),
                                       p("I made a linear regression. Here is how it performed."),
                                       gt_output("ruralregressions"),
                                       br(),
@@ -152,36 +160,37 @@ server <- function(input, output){
     merge %>% 
       
       # Creating plot using data
-      ggplot(aes(x = year, y = evictions, group = year)) +
-      geom_point() +
+      ggplot(aes(x = year, y = evictions)) +
+      geom_jitter(aes(alpha = 0.5)) +
       labs(xlab = "Year", ylab = "Number of Evictions", title = "Evictions in Ohio over Time",
            subtitle = "Data from Princeton Poverty Lab") +
-      coord_flip() +
       
       # Adding line to make it easier to read
       geom_smooth(method = "lm", se = FALSE)
   })
 
-  # Using renderPlot again to add plot for Rent-Burdened tab panel which I definied in UI
+  # Using renderPlot again to add plot for Rent Burdened tab panel which I definied in UI
   output$rbplot <- renderPlot({  
     merge %>% 
       
       # Creating second plot
       ggplot(aes(x = year, y = rent_burden)) +
-      geom_point() +
+      geom_jitter(aes(alpha = 0.5)) +
       geom_smooth(method = "lm", se = FALSE) +
       
       #Adding labels to make graph understandable and explain what rent-burdened means
       
-      labs(title = "Percentage of households rent-burdened", subtitle = "rent-burdened = paying > 30% of
-           income to rent")
+      labs(title = "Rent Burden", subtitle = "rent burden is % of household income spent on rent")
   })
   
   output$renterhomesplot <- renderPlot({
     merge %>% 
       ggplot(aes(x = year, y = pct_renter_occupied)) +
-      geom_point() +
-      geom_smooth(method = "lm", se = FALSE)
+      geom_jitter(aes(alpha = 0.5)) +
+      geom_smooth(method = "lm", se = FALSE) +
+      labs(title = "Number of Housing Units that are Renter-Occupied",
+           x = "Year",
+           y = "Percent Renter Occupied")
   })
   
   output$raceplot <- renderPlot({  
@@ -190,18 +199,12 @@ server <- function(input, output){
       # Creating second plot
       
       filter(year == as.numeric(input$race_slider)) %>% 
-      group_by(name) %>% 
-      arrange(desc(eviction_rate)) %>% 
-      
-      # picking five most rentburdened counties with head
-      
-      #head() %>% 
-      
+     
       # looking at race in each of these counties
       
       ggplot(aes(x = pct_af_am, y = eviction_rate, fill = pct_af_am)) +
       geom_smooth(method = "lm", se = FALSE) +
-      geom_point() +
+      geom_jitter(aes(alpha = 0.5)) +
       
       #Adding labels to make graph understandable and explain what rent-burdened means
       
@@ -271,7 +274,7 @@ output$racetable <- render_gt({
         lapply(htmltools::HTML)
     } else {
       animlabels <- sprintf(
-        "<strong>%s</strong><br/>%g percent rent-burdened",
+        "<strong>%s</strong><br/>%g rent burden",
         sf$n, sf[[animsuffix]]
       ) %>% 
         lapply(htmltools::HTML)}
@@ -315,7 +318,7 @@ output$racetable <- render_gt({
   output$ruralgraphs <- renderPlot({
     merge %>%
       ggplot(aes_string(x = merge$ruralper, y = input$rural_urban)) +
-        geom_jitter() +
+        geom_jitter(alpha = 0.5) +
       geom_smooth(method = "lm")
   })
   
@@ -341,7 +344,7 @@ output$racetable <- render_gt({
   finalruralrbmodel <- modelruralrb %>% 
     gt() %>% 
     tab_header(
-      title = "Linear Regression of Ruralness and Rent-Burdenedness",
+      title = "Linear Regression of Ruralness and Rent Burden",
       subtitle = "explanatory variable is eviction rate"
     ) %>%
     
