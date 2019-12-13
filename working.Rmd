@@ -89,13 +89,10 @@ dplyr::mutate(geometry = st_centroid(geometry))
 leaflet(sf_centers) %>%
 addProviderTiles(providers$Stamen.Toner) %>%
 addCircleMarkers(radius = ~er_03,
-                 highlight = highlightOptions(weight = 5,
-                                           fillOpacity = 0.7,
-                                           bringToFront = TRUE),
               label = labels)
 leaflet(sf_centers) %>%
 addProviderTiles(providers$Stamen.Toner) %>%
-addCircleMarkers(radius = ~er.00)
+addCircleMarkers(radius = ~er_00)
 
 
 # animation_data <- sf %>%

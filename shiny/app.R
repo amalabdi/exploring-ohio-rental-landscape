@@ -57,7 +57,21 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                            # Adding tab for third graph 
                            
                            tabPanel("Rent-burden by race and county",
+                                    sidebarPanel(
+                                      selectInput("pickyear", label = "Pick Year", choices = counties$year)
+                                    ),
                                     plotOutput("graph3")),
+                           
+                           tabPanel("Animate Map",
+                                    sidebarPanel(
+                                      selectInput("xyz", label = "XYZ",
+                                                  choices = c("Rent-burdened", "Eviction Rate")),
+                                      sliderInput("slide", label = "Slide",
+                                                  min = 2000, max = 2016, value = 2000, sep = "")),
+                                      mainPanel(
+                                        leafletOutput("animap"))), 
+                                      
+                                    
                            
                            # Adding tab for map
                            
@@ -146,7 +160,7 @@ server <- function(input, output){
       
       # Creating second plot
       
-      filter(year == 2002) %>% 
+      filter(year == input$pickyear) %>% 
       group_by(name) %>% 
       arrange(desc(`rent-burden`)) %>% 
       
@@ -156,7 +170,7 @@ server <- function(input, output){
       
       # looking at race in each of these counties
       
-      ggplot(aes(x = name, y = `rent-burden`, fill = `pct-af-am`)) +
+      ggplot(aes(x = name, y = `rent-burden`, fill = `per-af-am`)) +
       geom_col() +
       
       #Adding labels to make graph understandable and explain what rent-burdened means
@@ -172,6 +186,8 @@ server <- function(input, output){
   sf <- read_sf(
     "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
     clean_names() 
+  sf_centers <- sf %>%
+    dplyr::mutate(geometry = st_centroid(geometry))
     #st_transform(st_crs(4326)) %>% 
    # st_cast('POLYGON')
   # Got this idea from: https://rstudio-pubs-static.s3.amazonaws.com/307862_b8c8460272dc4a2a9023d033d5f3ec34.html
@@ -179,6 +195,32 @@ server <- function(input, output){
 
 
 
+  output$animap <- renderLeaflet({
+    if(input$xyz == "Eviction Rate"){
+      b = 23
+    } else {b = 15}
+    animsuffix <- (input$slide - 2000)*23 + b
+    if(input$xyz == "Eviction Rate"){
+      animlabels <- sprintf(
+        "<strong>%s</strong><br/>%g percent eviction rate",
+        sf$n, sf[[animsuffix]]
+      ) %>% 
+        lapply(htmltools::HTML)
+    } else {
+      animlabels <- sprintf(
+        "<strong>%s</strong><br/>%g percent rent-burdened",
+        sf$n, sf[[animsuffix]]
+      ) %>% 
+        lapply(htmltools::HTML)}
+    if(input$xyz == "Eviction Rate")
+      {pal_val <- sf[[animsuffix]]*50}
+    else{pal_val <- sf[[animsuffix]]}
+    pal <- colorNumeric("viridis", domain = pal_val)
+    leaflet(sf_centers) %>%
+      addProviderTiles(providers$Stamen.Toner) %>%
+      addCircleMarkers(radius = ~pal_val,
+                       label = animlabels) 
+  })
  
 
   
