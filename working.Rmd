@@ -247,3 +247,23 @@ graph_3 <- counties %>%
 graph_3
 ```
 
+```{r}
+modelrural <- lm(data = merge, eviction_rate ~ ruralper) %>% 
+tidy(conf.int = TRUE, conf.level = 0.90) %>%
+  
+  # select only the term, estimate, conf.low, and conf.high columns
+  
+  select(term, estimate, conf.low, conf.high, p.value)
+
+  # change term labels to factors so the levels can be edited
+
+  modelrural$term <- as.factor(modelrural$term)
+
+  # edit labels of the term level
+
+   modelrural$term <- plyr::revalue(modelrural$term, 
+                                  c("(Intercept)" = "Intercept", 
+                                    ruralper = "Percent Rural"))
+     gt()
+```
+

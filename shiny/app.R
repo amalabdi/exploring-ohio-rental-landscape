@@ -29,8 +29,8 @@ library(tidyverse)
 
 # loading data
 
-#data <- read_xlsx("data.xlsx")
-counties <- read_csv("counties.csv")
+counties <- read_csv("counties.csv") %>% 
+  clean_names()
 sf <- read_sf(
   "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson")
 
@@ -58,9 +58,10 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                            
                            tabPanel("Rent-burden by race and county",
                                     sidebarPanel(
-                                      selectInput("pickyear", label = "Pick Year", choices = counties$year)
-                                    ),
-                                    plotOutput("graph3")),
+                                      sliderInput("xxx", label = "something",
+                                                  min = 2000, max = 2016, value = 2000, sep = "")),
+                                    mainPanel(
+                                    plotOutput("graph3"))),
                            
                            tabPanel("Animate Map",
                                     sidebarPanel(
@@ -98,7 +99,7 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                                     sidebarPanel(
                                       selectInput("var",
                                            label = "Choose",
-                                           choices = c("Rent-burdened" = "`rent-burden`","Eviction Rate"= "`eviction-rate`")
+                                           choices = c("Rent-burdened" = "rent_burden","Eviction Rate"= "eviction_rate")
                                            ),
                                     p("This graph shows xyz"),
                                     p("For instance, akjdfkhf")),
@@ -118,6 +119,18 @@ ui <- fluidPage(theme = shinytheme("flatly"),
 
 server <- function(input, output){
   
+  ohio <- get_decennial(geography = "county", 
+                        variables = c(totalrural = "H002005", total = "H002001"), 
+                        state = "OH") %>% 
+    clean_names()
+  pivot <- ohio %>% 
+    pivot_wider(names_from = variable, values_from = value) %>% 
+    mutate(ruralper = totalrural / total)
+  pivot$name = substr(pivot$name,1,nchar(pivot$name)-6)
+  
+  merge <- merge(counties, pivot, by = c("geoid", "name")) %>% 
+    clean_names()
+  
   # Using rendertext to write text for my About tab panel which I defined as text
   # in textOutput
   output$text <- renderText({"Welcome to my final project rough draft created for the fall 2019 iteration
@@ -128,24 +141,25 @@ server <- function(input, output){
   
   # Using renderPlot to insert the graph for my Evictions tab panel which I defined in the ui
   output$graph1 <- renderPlot({  
-    data %>% 
+    merge %>% 
       
       # Creating plot using data
-      ggplot(aes(x = year, y = evictions)) +
-      geom_point() +
+      ggplot(aes(x = year, y = evictions, group = year)) +
+      geom_boxplot() +
       labs(xlab = "Year", ylab = "Number of Evictions", title = "Evictions in Ohio over Time",
            subtitle = "Data from Princeton Poverty Lab") +
+      coord_flip() +
       
       # Adding line to make it easier to read
       geom_smooth(method = "lm", se = FALSE)
   })
-  
+
   # Using renderPlot again to add plot for Rent-Burdened tab panel which I definied in UI
   output$graph2 <- renderPlot({  
-    data %>% 
+    merge %>% 
       
       # Creating second plot
-      ggplot(aes(x = year, y = `rent-burden`)) +
+      ggplot(aes(x = year, y = rent_burden)) +
       geom_point() +
       geom_smooth(method = "lm", se = FALSE) +
       
@@ -156,40 +170,38 @@ server <- function(input, output){
   })
   
   output$graph3 <- renderPlot({  
-    counties %>% 
+    merge %>% 
       
       # Creating second plot
       
-      filter(year == input$pickyear) %>% 
+      filter(year == as.numeric(input$xxx)) %>% 
       group_by(name) %>% 
-      arrange(desc(`rent-burden`)) %>% 
+      arrange(desc(eviction_rate)) %>% 
       
       # picking five most rentburdened counties with head
       
-      head() %>% 
+      #head() %>% 
       
       # looking at race in each of these counties
       
-      ggplot(aes(x = name, y = `rent-burden`, fill = `per-af-am`)) +
-      geom_col() +
+      ggplot(aes(x = pct_af_am, y = eviction_rate, fill = pct_af_am)) +
+      geom_smooth(method = "lm", se = FALSE) +
+      geom_point() +
       
       #Adding labels to make graph understandable and explain what rent-burdened means
       
-      labs(title = "Percentage of households rent-burdened by county", subtitle = "rent-burdened = paying > 30% of
-           income to rent")
+      labs(title = "Highest Eviction Rates", subtitle = "It seems that more African American counties
+           have a higher eviction rate")
   })
   
-  library(leaflet)
-  library(htmltools)
-  library(sf)
+
   
   sf <- read_sf(
     "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
     clean_names() 
   sf_centers <- sf %>%
     dplyr::mutate(geometry = st_centroid(geometry))
-    #st_transform(st_crs(4326)) %>% 
-   # st_cast('POLYGON')
+
   # Got this idea from: https://rstudio-pubs-static.s3.amazonaws.com/307862_b8c8460272dc4a2a9023d033d5f3ec34.html
   # And help from Mark on R studio
 
@@ -247,21 +259,13 @@ server <- function(input, output){
   
   
   
-  ohio <- get_decennial(geography = "county", 
-                        variables = c(totalrural = "H002005", total = "H002001"), 
-                        state = "OH")
-  pivot <- ohio %>% 
-    pivot_wider(names_from = variable, values_from = value) %>% 
-    mutate(ruralper = totalrural / total)
-  #pivot$NAME = substr(pivot$NAME,1,nchar(pivot$NAME)-6)
-  
-  merge <- merge(counties, pivot, by = "GEOID") %>% 
-    group_by(year) 
+ 
   
   output$ruralgraphs <- renderPlot({
-    # colm <- as.numeric(input$modelchoice)
-      ggplot(data = merge, aes_string(x = merge$ruralper, y = input$var)) +
-        geom_smooth()
+    merge %>%
+      ggplot(aes_string(x = merge$ruralper, y = input$var)) +
+        geom_jitter() +
+      geom_smooth(method = "lm")
   })
   }
 
