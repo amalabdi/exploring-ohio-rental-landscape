@@ -40,80 +40,88 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                 
                 navbarPage("Rental Landscape of Ohio",
                            
-                           # Adding a tab for my about page
-                           tabPanel("About the Project",
-                                    textOutput("text")),
-                           
                            # Adding a tab to the navbar for first graph
                            
-                           tabPanel("Rent-Burdened Ohio Households",
-                                    plotOutput("graph2")),
+                           tabPanel("Broad Overview",
+                                    plotOutput("rbplot"),
+                                    br(),
+                                    plotOutput("evictionsplot"),
+                                    br(),
+                                    plotOutput("renterhomesplot")),
                            
-                           # Adding tab for second graph
-                           
-                           tabPanel("Evictions",
-                                    plotOutput("graph1")),
-                           
-                           # Adding tab for third graph 
-                           
-                           tabPanel("Rent-burden by race and county",
+                           tabPanel("Map of Evictions and Rent-burdenedness Over Time",
                                     sidebarPanel(
-                                      sliderInput("xxx", label = "something",
-                                                  min = 2000, max = 2016, value = 2000, sep = "")),
-                                    mainPanel(
-                                    plotOutput("graph3"))),
-                           
-                           tabPanel("Animate Map",
-                                    sidebarPanel(
-                                      selectInput("xyz", label = "XYZ",
-                                                  choices = c("Rent-burdened", "Eviction Rate")),
+                                      selectInput("rent_evic_select", label = "Choose",
+                                                  choices = c("Rent-burdened", "Eviction Rate"),
+                                                  selected = "Eviction Rate"),
                                       sliderInput("slide", label = "Slide",
-                                                  min = 2000, max = 2016, value = 2000, sep = "")),
+                                                  min = 2000, max = 2016, value = 2000, sep = "",
+                                                  animate = TRUE)),
                                       mainPanel(
                                         leafletOutput("animap"))), 
                                       
-                                    
                            
                            # Adding tab for map
                            
                            tabPanel("Eviction Map",
                                     sidebarPanel(
-                                      selectInput("mapvar",
-                                                  label = "Choose",
+                                      selectInput("evicmapvar",
+                                                  label = "Year",
                                                   choices = c("2000" = "26", "2001" = "49", "2002" = "72",
                                                               "2003" = "95", "2004" = "118", "2005" = "141", "2006" = "164",
                                                               "2007" = "187", "2008" = "210", "2009" = "233", "2010" = "256",
                                                               "2011" = "279", "2012" = "302", "2013" = "325", "2014" = "348",
-                                                              "2015" = "371", "2016" = "394")
+                                                              "2015" = "371", "2016" = "394"),
+                                                  selected = "2000"
                                                   )
                                     ),
                                     mainPanel(
                                       leafletOutput("evicmap"))),
-                           
-                           # Adding a tab for my about me page
-                           tabPanel("About the Author",
-                                    textOutput("textabout")),
-                           
                            # Adding tab comparing rural and urban
                            tabPanel("Comparing Rural and Urban",
                                     sidebarPanel(
-                                      selectInput("var",
-                                           label = "Choose",
-                                           choices = c("Rent-burdened" = "rent_burden","Eviction Rate"= "eviction_rate")
-                                           ),
-                                    p("This graph shows xyz"),
-                                    p("For instance, akjdfkhf")),
+                                      selectInput("rural_urban",
+                                                  label = "Choose",
+                                                  choices = c("Rent-burdened" = "rent_burden","Eviction Rate"= "eviction_rate")
+                                      ),
+                                      p("This graph shows xyz"),
+                                      p("For instance, akjdfkhf")),
                                     mainPanel(
                                       plotOutput("ruralgraphs"),
                                       h4("How does rent-burdennedness and eviction rate vary by 'ruralness'?"),
                                       p("I made a linear regression. Here is how it performed."),
-                                      DTOutput("ruralregressions"),
+                                      gt_output("ruralregressions"),
                                       br(),
                                       h6(
                                         "Insert interpretation of graphs"
                                       )
                                     )
-                )))
+                           ),
+                           
+                           # Adding tab for third graph 
+                           
+                           tabPanel("Eviction Rates and Race",
+                                    sidebarPanel(
+                                      sliderInput("race_slider", label = "Year",
+                                                  min = 2000, max = 2016, value = 2000, sep = "")),
+                                    mainPanel(
+                                      plotOutput("raceplot"),
+                                      br(),
+                                      h4("Now looking at a regression for all years"),
+                                      gt_output("racetable"),
+                                      p("It is pretty significant. For every 1% increase in how African-American a county
+                                        is, the eviction rate goes up by .13. It could be related to a number of factors. The p-
+                                        value is pretty low so it seems that this is pretty significant."))),
+                           
+                           # Adding a tab for my about page
+                           tabPanel("About the Project",
+                                    textOutput("textprj")),
+                           
+                           
+                           # Adding a tab for my about me page
+                           tabPanel("About the Author",
+                                    textOutput("text_aboutme"))
+                          ))
 
 # Creating a server to tell ui what to do
 
@@ -133,19 +141,19 @@ server <- function(input, output){
   
   # Using rendertext to write text for my About tab panel which I defined as text
   # in textOutput
-  output$text <- renderText({"Welcome to my final project rough draft created for the fall 2019 iteration
+  output$textprj <- renderText({"Welcome to my final project rough draft created for the fall 2019 iteration
     of Harvard Gov 1005: Data class! My name is Amal Abdi, and I am a senior at Harvard. This data is from 
     the American Community Survey and Princeton Eviction Lab, a project directed by Matthew Desmond and designed by Ashley Gromis, Lavar Edmonds, James Hendrickson, Katie Krywokulski, Lillian Leung, and Adam Porton. 
     The Eviction Lab is funded by the JPB, Gates, and Ford Foundations as well as the Chan Zuckerberg Initiative. 
     More information is found at evictionlab.org. In this project, I am exploring evictions in Ohio."})
   
   # Using renderPlot to insert the graph for my Evictions tab panel which I defined in the ui
-  output$graph1 <- renderPlot({  
+  output$evictionsplot <- renderPlot({  
     merge %>% 
       
       # Creating plot using data
       ggplot(aes(x = year, y = evictions, group = year)) +
-      geom_boxplot() +
+      geom_point() +
       labs(xlab = "Year", ylab = "Number of Evictions", title = "Evictions in Ohio over Time",
            subtitle = "Data from Princeton Poverty Lab") +
       coord_flip() +
@@ -155,7 +163,7 @@ server <- function(input, output){
   })
 
   # Using renderPlot again to add plot for Rent-Burdened tab panel which I definied in UI
-  output$graph2 <- renderPlot({  
+  output$rbplot <- renderPlot({  
     merge %>% 
       
       # Creating second plot
@@ -169,12 +177,19 @@ server <- function(input, output){
            income to rent")
   })
   
-  output$graph3 <- renderPlot({  
+  output$renterhomesplot <- renderPlot({
+    merge %>% 
+      ggplot(aes(x = year, y = pct_renter_occupied)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE)
+  })
+  
+  output$raceplot <- renderPlot({  
     merge %>% 
       
       # Creating second plot
       
-      filter(year == as.numeric(input$xxx)) %>% 
+      filter(year == as.numeric(input$race_slider)) %>% 
       group_by(name) %>% 
       arrange(desc(eviction_rate)) %>% 
       
@@ -196,6 +211,42 @@ server <- function(input, output){
   
 
   
+output$racetable <- render_gt({
+  modelrace <- lm(data = merge, eviction_rate ~ pct_af_am) %>% 
+    tidy(conf.int = TRUE, conf.level = 0.90) %>%
+    
+    # select only the term, estimate, conf.low, and conf.high columns
+    
+    select(term, estimate, conf.low, conf.high, p.value)
+  
+  # change term labels to factors so the levels can be edited
+  
+  modelrace$term <- as.factor(modelrace$term)
+  
+  # edit labels of the term level
+  
+  modelrace$term <- plyr::revalue(modelrace$term, 
+                                  c("(Intercept)" = "Intercept", 
+                                    pct_af_am = "Percent African-American"))
+  finalracemodel <- modelrace %>% 
+    gt() %>% 
+    tab_header(
+      title = "Linear Regression of Percent African American and Eviction Rate",
+      subtitle = "explanatory variable is eviction rate"
+    ) %>%
+    
+    # format estimate, conf.low, and conf.high columns so that the values are
+    # rounded to the nearest two decimal places
+    
+    fmt_number(columns = vars(estimate, conf.low, conf.high), decimals = 2) %>%
+    cols_label(
+      term = "",
+      estimate = "Coefficient",
+      conf.low = "5th percentile",
+      conf.high = "95th percentile"
+    )
+})
+  
   sf <- read_sf(
     "https://raw.githubusercontent.com/amalabdi/milestone_8/master/counties.geojson") %>% 
     clean_names() 
@@ -208,11 +259,11 @@ server <- function(input, output){
 
 
   output$animap <- renderLeaflet({
-    if(input$xyz == "Eviction Rate"){
+    if(input$rent_evic_select == "Eviction Rate"){
       b = 23
     } else {b = 15}
     animsuffix <- (input$slide - 2000)*23 + b
-    if(input$xyz == "Eviction Rate"){
+    if(input$rent_evic_select == "Eviction Rate"){
       animlabels <- sprintf(
         "<strong>%s</strong><br/>%g percent eviction rate",
         sf$n, sf[[animsuffix]]
@@ -224,7 +275,7 @@ server <- function(input, output){
         sf$n, sf[[animsuffix]]
       ) %>% 
         lapply(htmltools::HTML)}
-    if(input$xyz == "Eviction Rate")
+    if(input$rent_evic_select == "Eviction Rate")
       {pal_val <- sf[[animsuffix]]*50}
     else{pal_val <- sf[[animsuffix]]}
     pal <- colorNumeric("viridis", domain = pal_val)
@@ -237,7 +288,7 @@ server <- function(input, output){
 
   
   output$evicmap <- renderLeaflet({
-    x <- as.numeric(input$mapvar)
+    x <- as.numeric(input$evicmapvar)
     labels <- sprintf(
       "<strong>%s</strong><br/>%g percent eviction rate",
       sf$n, sf[[x]]
@@ -263,9 +314,84 @@ server <- function(input, output){
   
   output$ruralgraphs <- renderPlot({
     merge %>%
-      ggplot(aes_string(x = merge$ruralper, y = input$var)) +
+      ggplot(aes_string(x = merge$ruralper, y = input$rural_urban)) +
         geom_jitter() +
       geom_smooth(method = "lm")
+  })
+  
+  
+  # making graphs to input
+  
+  modelruralrb <- lm(data = merge, rent_burden ~ ruralper) %>% 
+    tidy(conf.int = TRUE, conf.level = 0.90) %>%
+    
+    # select only the term, estimate, conf.low, and conf.high columns
+    
+    select(term, estimate, conf.low, conf.high, p.value)
+  
+  # change term labels to factors so the levels can be edited
+  
+  modelruralrb$term <- as.factor(modelruralrb$term)
+  
+  # edit labels of the term level
+  
+  modelruralrb$term <- plyr::revalue(modelruralrb$term, 
+                                     c("(Intercept)" = "Intercept", 
+                                       ruralper = "Percent Rural"))
+  finalruralrbmodel <- modelruralrb %>% 
+    gt() %>% 
+    tab_header(
+      title = "Linear Regression of Ruralness and Rent-Burdenedness",
+      subtitle = "explanatory variable is eviction rate"
+    ) %>%
+    
+    # format estimate, conf.low, and conf.high columns so that the values are
+    # rounded to the nearest two decimal places
+    
+    fmt_number(columns = vars(estimate, conf.low, conf.high), decimals = 2) %>%
+    cols_label(
+      term = "",
+      estimate = "Coefficient",
+      conf.low = "5th percentile",
+      conf.high = "95th percentile"
+    )
+  
+  modelruralevic <- lm(data = merge, eviction_rate ~ ruralper) %>% 
+    tidy(conf.int = TRUE, conf.level = 0.90) %>%
+    
+    # select only the term, estimate, conf.low, and conf.high columns
+    
+    select(term, estimate, conf.low, conf.high, p.value)
+  
+  # change term labels to factors so the levels can be edited
+  
+  modelruralevic$term <- as.factor(modelruralevic$term)
+  
+  # edit labels of the term level
+  
+  modelruralevic$term <- plyr::revalue(modelruralevic$term, 
+                                       c("(Intercept)" = "Intercept", 
+                                         ruralper = "Percent Rural"))
+  finalruralevicmodel <- modelruralevic %>% 
+    gt() %>% 
+    tab_header(
+      title = "Linear Regression of Ruralness and Eviction Rate",
+      subtitle = "explanatory variable is eviction rate"
+    ) %>%
+    
+    # format estimate, conf.low, and conf.high columns so that the values are
+    # rounded to the nearest two decimal places
+    
+    fmt_number(columns = vars(estimate, conf.low, conf.high), decimals = 2) %>%
+    cols_label(
+      term = "",
+      estimate = "Coefficient",
+      conf.low = "5th percentile",
+      conf.high = "95th percentile"
+    )
+  output$ruralregressions <- render_gt({
+    if(input$rural_urban == "rent_burden"){finalruralrbmodel}
+    else{finalruralevicmodel}
   })
   }
 
