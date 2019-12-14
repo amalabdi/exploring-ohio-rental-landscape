@@ -1,0 +1,12 @@
+name: shiny
+title: shiny
+username:
+account: amal-abdi
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1598591
+bundleId: 2666738
+url: https://amal-abdi.shinyapps.io/shiny/
+when: 1576291641.49687
+asMultiple: FALSE
+asStatic: FALSE

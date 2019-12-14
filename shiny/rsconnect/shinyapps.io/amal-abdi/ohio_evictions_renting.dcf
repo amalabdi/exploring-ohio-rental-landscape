@@ -1,0 +1,12 @@
+name: ohio_evictions_renting
+title: ohio_evictions_renting
+username:
+account: amal-abdi
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1598623
+bundleId: 2666880
+url: https://amal-abdi.shinyapps.io/ohio_evictions_renting/
+when: 1576297460.65768
+asMultiple: FALSE
+asStatic: FALSE
